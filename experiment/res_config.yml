@@ -1,0 +1,59 @@
+Selector:
+  task:
+    B-cifar10_classification_P-dir0.50_N-100_S-0
+  header:
+    - fedavg
+  filter: {}
+  legend_with: [LR, E, B]
+
+Painter:
+  Curve:
+    - args:
+        x: communication_round
+        y: valid_loss
+      obj_option:
+        linewidth: 5
+        color: ['r', 'g', 'b', 'pink', 'orange', 'yellow', 'black', 'gray']
+      fig_option:
+        xlabel: communication round
+        ylabel: valid loss
+        title: valid loss on MNIST
+      split:
+        cols: 4
+        figsize: [40, 10]
+  GroupBar:
+    - args:
+        x: client_id
+        y: train_accuracy_dist
+      split:
+        cols: 2
+        figsize: [30,10]
+  GroupCurve:
+    - args:
+        x: communication_round
+        y: valid_loss
+      obj_option:
+        linewidth: 5
+      fig_option:
+        xlabel: communication round
+        ylabel: valid loss
+        title: valid loss on MNIST
+
+Table:
+  min_value:
+    - x: valid_loss
+      name: min valid loss
+  final_value:
+    - x: valid_loss
+      name: min valid loss
+  optimal_x_by_y:
+    - x: communication_round
+      y: valid_loss
+      name: optimal round of valid_loss
+    - x: test_loss
+      y: valid_loss
+  group_optimal_value:
+    - x: valid_loss
+
+
+
