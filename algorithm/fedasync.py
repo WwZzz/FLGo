@@ -29,9 +29,6 @@ class Server(BasicServer):
             alpha_ts = [self.alpha * self.s(self.current_round - tau) for tau in taus]
             currently_updated_models = [(1-alpha_t)*self.model+alpha_t*model_k for alpha_t, model_k in zip(alpha_ts, received_models) ]
             self.model = self.aggregate(currently_updated_models)
-            # update aggregation round and the flag `updated`
-            self.current_round += 1
-            self.updated = True
         return len(received_models) > 0
 
     def s(self, delta_tau):
