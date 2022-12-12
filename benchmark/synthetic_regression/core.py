@@ -2,7 +2,7 @@ import numpy as np
 from benchmark.toolkits.base import *
 from benchmark.toolkits.cv.horizontal.image_classification import GeneralCalculator
 from benchmark.toolkits.partition import BasicPartitioner
-TaskPipe = TensorHorizontalTaskPipe
+TaskPipe = XYHorizontalTaskPipe
 TaskCalculator = GeneralCalculator
 
 class TaskGenerator(BasicTaskGenerator):
@@ -65,8 +65,8 @@ class TaskGenerator(BasicTaskGenerator):
             y_test = y_split[cid][k:]
             test_data['x'].extend(x_test)
             test_data['y'].extend(y_test)
-            local_datas.append([(xi,yi) for xi,yi in zip(x_train, y_train)])
-        self.test_data = [(xi,yi) for xi,yi in zip(x_test, y_test)]
+            local_datas.append({'x': x_train, 'y':y_train})
+        self.test_data = test_data
         self.local_datas = local_datas
         return X_split, y_split, optimal_local
 
