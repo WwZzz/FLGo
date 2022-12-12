@@ -41,7 +41,7 @@ class StateUpdater(BasicStateUpdater):
         customers_availability_by_id = customers_availability.groupby('id')['timestamp'].apply(list)
         customers_availability_by_id = customers_availability_by_id.to_frame(name='timestamps')
         customers_availability_by_id = customers_availability_by_id.reset_index()
-        if self.option['availability'] == 'HIGH' and self.num_clients<len(customers_availability_by_id):
+        if self.option['availability'] == 'IDL' or (self.option['availability']=='HIGH' and self.num_clients<len(customers_availability_by_id)) :
             customers_availability_by_id['num_stamps'] = customers_availability_by_id.apply(lambda x: len(x['timestamps']), axis=1)
             customers_availability_by_id = customers_availability_by_id.sort_values(by='num_stamps', ascending=False)
             customers_availability_by_id = customers_availability_by_id['id'].to_list()[:self.num_clients]
@@ -51,10 +51,12 @@ class StateUpdater(BasicStateUpdater):
             customers_availability_by_id = customers_availability_by_id.sort_values(by='num_stamps', ascending=True)
             customers = customers_availability_by_id['id'].to_list()[:self.num_clients]
             self.customer_map = {cid: customers[cid] for cid in range(self.num_clients)}
-        else:
+        elif self.option['availability']=='RANDOM':
             replacement = True  if self.num_clients>len(customers_availability_by_id) else False
             customers = customers_availability_by_id.sample(n=self.num_clients, replace=replacement)['id'].to_list()
             self.customer_map = {cid: customers[cid] for cid in range(self.num_clients)}
+        else:
+            raise NotImplementedError("Availability {} has been not implemented.".format(self.option['availability']))
         self.availability_table = customers_availability_by_time
         return
 
