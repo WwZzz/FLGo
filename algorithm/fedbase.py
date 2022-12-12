@@ -50,22 +50,26 @@ class BasicServer:
         Start the federated learning symtem where the global model is trained iteratively.
         """
         cfg.logger.time_start('Total Time Cost')
-        for round in range(1, self.num_rounds+1):
-            self.current_round = round
-            # using logger to evaluate the model
-            cfg.logger.info("--------------Round {}--------------".format(round))
-            cfg.logger.time_start('Time Cost')
-            if cfg.logger.check_if_log(round, self.eval_interval):
-                cfg.logger.time_start('Eval Time Cost')
-                cfg.logger.log_once()
-                cfg.logger.time_end('Eval Time Cost')
-            # check if early stopping
-            if cfg.logger.early_stop(): break
-            # federated train
-            self.iterate()
+        cfg.logger.info("--------------Initial Evaluation--------------")
+        cfg.logger.time_start('Eval Time Cost')
+        cfg.logger.log_once()
+        cfg.logger.time_end('Eval Time Cost')
+        while self.current_round <= self.num_rounds:
+            # iterate
+            updated = self.iterate()
+            # using logger to evaluate the model if the model is updated
+            if updated is True or updated is None:
+                cfg.logger.info("--------------Round {}--------------".format(self.current_round))
+                # check log interval
+                if cfg.logger.check_if_log(self.current_round, self.eval_interval):
+                    cfg.logger.time_start('Eval Time Cost')
+                    cfg.logger.log_once()
+                    cfg.logger.time_end('Eval Time Cost')
+                # check if early stopping
+                if cfg.logger.early_stop(): break
+                self.current_round += 1
             # decay learning rate
-            self.global_lr_scheduler(round)
-            cfg.logger.time_end('Time Cost')
+            self.global_lr_scheduler(self.current_round)
         cfg.logger.info("--------------Final Evaluation--------------")
         cfg.logger.time_start('Eval Time Cost')
         cfg.logger.log_once()
@@ -90,7 +94,7 @@ class BasicServer:
         models = self.communicate(self.selected_clients)['model']
         # aggregate: pk = 1/K as default where K=len(selected_clients)
         self.model = self.aggregate(models)
-        return
+        return len(models)>0
 
     @ss.with_dropout
     @ss.with_clock

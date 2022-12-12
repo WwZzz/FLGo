@@ -29,9 +29,9 @@ class Record:
     def set_communication_round(self):
         num_rounds = self.data['option']['num_rounds']
         eval_interval = self.data['option']['eval_interval']
-        x = []
-        for round in range(num_rounds + 1):
-            if eval_interval > 0 and (round == 0 or round % eval_interval == 0 or round == num_rounds):
+        x = [0]
+        for round in range(1, num_rounds + 2):
+            if eval_interval > 0 and (round == 0 or round % eval_interval == 0):
                 x.append(round)
             if self.data['option']['early_stop'] > 0 and 'valid_loss' in self.data.keys() and len(x) >= len(self.data['valid_loss']):
                 break
@@ -224,7 +224,10 @@ class Painter:
                 fig_size = mpl.rcParams['figure.figsize']
                 new_fig_size = (fig_size[0] * cols, fig_size[1] * rows)
             fig, axs = plt.subplots(rows, cols, figsize=new_fig_size)
-            axs = axs.reshape(-1)
+            if type(axs) is np.ndarray:
+                axs = axs.reshape(-1)
+            else:
+                axs = [axs]
         else:
             fig, ax = plt.subplots()
             axs = [ax for _ in self.records]

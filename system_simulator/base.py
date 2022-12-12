@@ -99,10 +99,14 @@ class BasicStateUpdater(AbstractStateUpdater):
     _STATE = ['offline', 'idle', 'selected', 'working', 'dropped']
     _VAR_NAMES = ['prob_available', 'prob_unavailable', 'prob_drop', 'working_amount', 'latency']
     def __init__(self, objects, *args, **kwargs):
-        self.server = objects[0]
-        self.clients = objects[1:]
+        if len(objects)>0:
+            self.server = objects[0]
+            self.clients = objects[1:]
+        else:
+            self.server = None
+            self.clients = []
         self.all_clients = list(range(len(self.clients)))
-        self.random_module = np.random.RandomState(next(random_seed_gen))
+        self.random_module = np.random.RandomState(0) if random_seed_gen is None else np.random.RandomState(next(random_seed_gen))
         # client states and the variables
         self.client_states = ['idle' for _ in self.clients]
         self.roundwise_fixed_availability = False

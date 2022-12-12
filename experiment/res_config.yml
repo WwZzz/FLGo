@@ -1,6 +1,6 @@
 Selector:
   task:
-    B-cifar10_classification_P-dir0.50_N-100_S-0
+    B-mnist_classification_P-iid_imb0.1_N-100_S-0
   header:
     - fedavg
   filter: {}
@@ -21,13 +21,6 @@ Painter:
       split:
         cols: 4
         figsize: [40, 10]
-  GroupBar:
-    - args:
-        x: client_id
-        y: train_accuracy_dist
-      split:
-        cols: 2
-        figsize: [30,10]
   GroupCurve:
     - args:
         x: communication_round
