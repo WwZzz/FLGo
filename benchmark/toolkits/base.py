@@ -9,7 +9,9 @@ import torch
 from torch.utils.data import Dataset
 import ujson
 
-TASKROOT_PATH = './fedtask' if os.getcwd().split('/')[-1]=='FLGO' else '../../fedtask'
+# 根目录设置
+TASKROOT_PATH = './fedtask' if os.getcwd().split('/')[-1] == 'FLGO_2' else '../../fedtask'
+
 
 class AbstractTaskGenerator(metaclass=ABCMeta):
     @abstractmethod
@@ -30,6 +32,7 @@ class AbstractTaskGenerator(metaclass=ABCMeta):
         information about the federated task (e.g. path, partition way, ...)"""
         pass
 
+
 class AbstractTaskPipe(metaclass=ABCMeta):
     @abstractmethod
     def save_task(self, *args, **kwargs):
@@ -40,6 +43,7 @@ class AbstractTaskPipe(metaclass=ABCMeta):
     def load_task(self, *args, **kwargs):
         """Load a federated task from disk"""
         pass
+
 
 class AbstractTaskCalculator(metaclass=ABCMeta):
     @abstractmethod
@@ -61,6 +65,7 @@ class AbstractTaskCalculator(metaclass=ABCMeta):
     @abstractmethod
     def get_optimizer(self, model, *args, **kwargs):
         pass
+
 
 class BasicTaskGenerator(AbstractTaskGenerator):
     def __init__(self, benchmark, rawdata_path):
@@ -99,7 +104,7 @@ class BasicTaskGenerator(AbstractTaskGenerator):
     def register_partitioner(self, partitioner=None):
         self.partitioner = partitioner
 
-    def init_para(self, para_list = None):
+    def init_para(self, para_list=None):
         pnames = list(self.para.keys())
         if para_list is not None:
             for i, pv in enumerate(para_list):
@@ -113,10 +118,12 @@ class BasicTaskGenerator(AbstractTaskGenerator):
         return
 
     def get_task_name(self):
-        return '_'.join(['B-'+self.benchmark,  'P-'+str(self.partitioner), 'N-'+str(self.partitioner.num_clients)])
+        return '_'.join(['B-' + self.benchmark, 'P-' + str(self.partitioner), 'N-' + str(self.partitioner.num_clients)])
+
 
 class BasicTaskPipe(AbstractTaskPipe):
     TaskDataset = None
+
     def __init__(self, task_name):
         self.task_name = task_name
         self.task_path = os.path.join(TASKROOT_PATH, self.task_name)
@@ -147,9 +154,9 @@ class BasicTaskPipe(AbstractTaskPipe):
             for data_name, data in ob_data.items():
                 ob.set_data(data, data_name)
 
-    def split_dataset(self,  dataset, p=0.0):
-        if p==0: return dataset, None
-        s1 = int(len(dataset)*p)
+    def split_dataset(self, dataset, p=0.0):
+        if p == 0: return dataset, None
+        s1 = int(len(dataset) * p)
         s2 = len(dataset) - s1
         return torch.utils.data.random_split(dataset, [s2, s1])
 
@@ -176,6 +183,7 @@ class BasicTaskPipe(AbstractTaskPipe):
 
     def gen_client_names(self, num_clients):
         return [('Client{:0>' + str(len(str(num_clients))) + 'd}').format(i) for i in range(num_clients)]
+
 
 class BasicTaskCalculator(AbstractTaskCalculator):
     def __init__(self, device, optimizer_name='sgd'):
@@ -206,11 +214,12 @@ class BasicTaskCalculator(AbstractTaskCalculator):
         else:
             raise RuntimeError("Invalid Optimizer.")
 
+
 class HorizontalTaskPipe(BasicTaskPipe):
     def generate_objects(self, running_time_option):
         # init clients
         client_path = '%s.%s' % ('algorithm', running_time_option['algorithm'])
-        Client=getattr(importlib.import_module(client_path), 'Client')
+        Client = getattr(importlib.import_module(client_path), 'Client')
         clients = [Client(running_time_option) for _ in range(len(self.feddata['client_names']))]
         for cid, c in enumerate(clients):
             c.id = cid
@@ -226,43 +235,44 @@ class HorizontalTaskPipe(BasicTaskPipe):
         objects.extend(clients)
         return objects
 
-class TensorHorizontalTaskPipe(HorizontalTaskPipe):
+
+class XYHorizontalTaskPipe(HorizontalTaskPipe):
     """
     This pipe is for supervised learning where each sample contains a feature $x_i$ and a label $y_i$
      that can be indexed by $i$.
-    To use this pipe, it's necessary to set the attribute `test_data` of the generator to be a list of tuples like:
-        [(x_11, x_12, ..., x_1d), (x_21, x_22, ..., x_2d), ..., (x_n1, x_n2, ..., x_nd)]
-    and the attribute `local_datas` to be a list of the above list that means the local data owned by clients:
-        [[(xi_11, xi_12, ..., xi_1d), ..., (xi_n1, xi_n2, ..., xi_nd)], ..., ]
+    To use this pipe, it's necessary to set the attribute `test_data` of the generator to be a dict like:
+        {'x': [...], 'y':[...]}
+    and the attribute `local_datas` to be a list of the above dict that means the local data owned by clients:
+        [{'x':[...], 'y':[...]}, ..., ]
     """
     TaskDataset = torch.utils.data.TensorDataset
 
     def save_task(self, generator):
         client_names = self.gen_client_names(len(generator.local_datas))
         feddata = {'client_names': client_names, 'server': {'data': generator.test_data}}
-        for cid in range(len(client_names)): feddata[client_names[cid]] = {'data': generator.local_datas[cid],}
+        for cid in range(len(client_names)): feddata[client_names[cid]] = {'data': generator.local_datas[cid]}
         with open(os.path.join(self.task_path, 'data.json'), 'w') as outf:
             ujson.dump(feddata, outf)
 
     def load_data(self, running_time_option) -> dict:
         test_data = self.feddata['server']['data']
-        if test_data is None or len(test_data)==0:
-            data_dim = len(self.feddata[self.feddata['client_names'][0]]['data'][0])
-        else:
-            data_dim = len(test_data[0])
-        test_data = self.TaskDataset(*tuple(torch.tensor(list(di[k] for di in test_data)) for k in range(data_dim)))
-        local_datas = [self.TaskDataset(*tuple(torch.tensor(list(di[k] for di in self.feddata[cname]['data'])) for k in range(data_dim))) for cname in self.feddata['client_names']]
+        test_data = self.TaskDataset(torch.tensor(test_data['x']), torch.tensor(test_data['y']))
+        local_datas = [self.TaskDataset(torch.tensor(self.feddata[cname]['data']['x']),
+                                        torch.tensor(self.feddata[cname]['data']['y'])) for cname in
+                       self.feddata['client_names']]
         server_data_test, server_data_valid = self.split_dataset(test_data, running_time_option['test_holdout'])
         task_data = {'server': {'test': server_data_test, 'valid': server_data_valid}}
         for key in self.feddata['server'].keys():
-            if key=='data': continue
+            if key == 'data':
+                continue
             task_data['server'][key] = self.feddata['server'][key]
         for cid, cname in enumerate(self.feddata['client_names']):
             cdata = local_datas[cid]
             cdata_train, cdata_valid = self.split_dataset(cdata, running_time_option['train_holdout'])
-            task_data[cname] = {'train':cdata_train, 'valid':cdata_valid}
+            task_data[cname] = {'train': cdata_train, 'valid': cdata_valid}
             for key in self.feddata[cname]:
-                if key=='data': continue
+                if key == 'data':
+                    continue
                 task_data[cname][key] = self.feddata[cname][key]
         return task_data
 

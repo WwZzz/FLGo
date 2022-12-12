@@ -1,5 +1,6 @@
-import random
 from abc import abstractmethod, ABCMeta
+import random
+
 import numpy as np
 import collections
 
@@ -72,7 +73,7 @@ class IIDPartitioner(BasicPartitioner):
         return name
 
     def __call__(self, data):
-        samples_per_client = self.data_imbalance_generator(self.num_clients, len(data) , self.imbalance)
+        samples_per_client = self.data_imbalance_generator(self.num_clients, len(data), self.imbalance)
         d_idxs = np.random.permutation(len(data))
         local_datas = np.split(d_idxs, np.cumsum(samples_per_client))[:-1]
         local_datas = [di.tolist() for di in local_datas]
@@ -106,7 +107,7 @@ class DirichletPartitioner(BasicPartitioner):
             proportions = [np.random.dirichlet(self.alpha * p) for _ in range(self.num_clients)]
         sorted_cid_map = {k: i for k, i in zip(np.argsort(samples_per_client), [_ for _ in range(self.num_clients)])}
         error_increase_interval = 500
-        max_error = 1e-5 / num_attrs
+        max_error = 1e-6 / num_attrs
         loop_count = 0
         crt_id = 0
         while True:
@@ -205,7 +206,7 @@ class DiversityPartitioner(BasicPartitioner):
         return local_datas
 
 class GaussianPerturbationPartitioner(BasicPartitioner):
-    def __init__(self, num_clients = 100, imbalance=0.0, sigma=0.1, scale=0.1, feature_index=0):
+    def __init__(self, num_clients=100, imbalance=0.0, sigma=0.1, scale=0.1, feature_index=0):
         self.num_clients = num_clients
         self.imbalance = imbalance
         self.sigma = sigma
