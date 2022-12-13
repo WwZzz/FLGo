@@ -33,11 +33,10 @@ class StateUpdater(BasicStateUpdater):
         if not os.path.exists(data_path):
             raise FileNotFoundError("Please download the original dataset in https://www.kaggle.com/datasets/bhuvanchennoju/mobile-usage-time-prediction , and move it into `benchmark/RAW_DATA/USER_ACTIVE_TIME/pings.csv`")
         customers_info = pd.read_csv(os.path.join(rawdata_path, "customers.csv"))
+        customers_info = customers_info.drop_duplicates(['id'], ignore_index=True)
         customers_availability = pd.read_csv(os.path.join(rawdata_path, 'pings.csv'))
         customers_availability['timestamp'] = customers_availability['timestamp'] - customers_availability['timestamp'][0]
         customers_availability_by_time = customers_availability.groupby('timestamp')['id'].apply(list)
-        # customers_availability_by_time = customers_availability_by_time.to_frame(name='id')
-        # customers_availability_by_time = customers_availability_by_time.reset_index()
         customers_availability_by_id = customers_availability.groupby('id')['timestamp'].apply(list)
         customers_availability_by_id = customers_availability_by_id.to_frame(name='timestamps')
         customers_availability_by_id = customers_availability_by_id.reset_index()
@@ -58,6 +57,31 @@ class StateUpdater(BasicStateUpdater):
         else:
             raise NotImplementedError("Availability {} has been not implemented.".format(self.option['availability']))
         self.availability_table = customers_availability_by_time
+        # def visualize(a, b, k=10000):
+        #     while a%15!=0: a=a+1
+        #     import matplotlib.pyplot as plt
+        #     ratio = max( (b-a)//k, 1)
+        #     plt.figure(figsize=(ratio*2.56, 2.56))
+        #     state = [0 for _ in range(len(customers_info))]
+        #     time_start = [0 for _ in range(len(customers_info))]
+        #     time_end = [0 for _ in range(len(customers_info))]
+        #     for tid in range(a, b, 15):
+        #         try:
+        #             cids = customers_availability_by_time[tid]
+        #         except:
+        #             continue
+        #         y = customers_info.loc[customers_info['id'].isin(cids)].index.to_list()
+        #         for cid in range(len(customers_info)):
+        #             if cid in y:
+        #                 if state[cid]==0:
+        #                     state[cid] = 1
+        #                     time_start[cid] = tid
+        #             else:
+        #                 if state[cid]==1:
+        #                     state[cid]=0
+        #                     time_end[cid] = tid
+        #                     plt.plot([time_start[cid], time_end[cid]], [cid, cid], c='g')
+        #     plt.show()
         return
 
     def update_client_availability(self):
