@@ -35,6 +35,22 @@ class FModule(nn.Module):
     def __neg__(self):
         return _model_scale(self, -1.0)
 
+    def __sizeof__(self):
+        if not hasattr(self, '__size'):
+            param_size = 0
+            param_sum = 0
+            for param in self.parameters():
+                param_size += param.nelement() * param.element_size()
+                param_sum += param.nelement()
+            buffer_size = 0
+            buffer_sum = 0
+            for buffer in self.buffers():
+                buffer_size += buffer.nelement() * buffer.element_size()
+                buffer_sum += buffer.nelement()
+            self.__size = param_size + buffer_size
+        return self.__size
+
+
     def norm(self, p=2):
         return self**p
 

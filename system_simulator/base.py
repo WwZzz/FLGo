@@ -1,8 +1,13 @@
+import sys
+
 import numpy as np
 import queue
 import config as cfg
 from abc import ABCMeta, abstractmethod
 import functools
+
+import torch
+
 
 class AbstractStateUpdater(metaclass=ABCMeta):
     @abstractmethod
@@ -17,6 +22,15 @@ def seed_generator(seed=0):
     while True:
         yield seed+1
         seed+=1
+
+def size_of_package(package):
+    size = 0
+    for v in package.values():
+        if type(v) is torch.Tensor:
+            size += sys.getsizeof(v.storage())
+        else:
+            size += v.__sizeof__()
+    return size
 
 class ElemClock:
     class Elem:
@@ -333,7 +347,7 @@ def with_clock(communicate):
         pkgs = [{key:vi[id] for key,vi in res.items()} for id in range(len(list(res.values())[0]))] if len(selected_clients)>0 else []
         # Set selected clients' states as `working` and calculate latency for them
         cfg.state_updater.set_client_state(selected_clients, 'working')
-        cfg.state_updater.set_variable(selected_clients, '__package_size', [pkg.__sizeof__() for pkg in pkgs])
+        cfg.state_updater.set_variable(selected_clients, '__package_size', [size_of_package(pkg) for pkg in pkgs])
         cfg.state_updater.update_client_responsiveness(selected_clients)
         latency = cfg.state_updater.get_variable(selected_clients, 'latency')
         # Compute the arrival time and put the packages into a queue according to their arrival time `__t`
