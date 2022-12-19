@@ -4,5 +4,5 @@ partitioner:
   name: DirichletPartitioner
   para:
     num_clients: 100
-    alpha: 0.3
+    alpha: 0.1
 

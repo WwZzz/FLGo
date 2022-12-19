@@ -9,9 +9,7 @@ import torch
 from torch.utils.data import Dataset
 import ujson
 
-# 根目录设置
-TASKROOT_PATH = './fedtask' if os.getcwd().split('/')[-1] == 'FLGO' else '../../fedtask'
-
+TASKROOT_PATH = './fedtask'
 
 class AbstractTaskGenerator(metaclass=ABCMeta):
     @abstractmethod
