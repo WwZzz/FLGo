@@ -119,7 +119,7 @@ class DirichletPartitioner(BasicPartitioner):
             mean_prop = np.sum([pi * di for pi, di in zip(proportions, samples_per_client)], axis=0)
             mean_prop = mean_prop / mean_prop.sum()
             error_norm = ((mean_prop - p) ** 2).sum()
-            if error_norm<crt_error:
+            if crt_error - error_norm >= max_error:
                 print("Error: {:.8f}".format(error_norm))
                 crt_error = error_norm
             if error_norm <= max_error:
