@@ -82,9 +82,9 @@ class IIDPartitioner(BasicPartitioner):
 class DirichletPartitioner(BasicPartitioner):
     def __init__(self, num_clients = 100, alpha=1.0, imbalance=0, flag_index=-1):
         self.num_clients = num_clients
-        self.alpha = 1.0
-        self.imbalance = 0
-        self.flag_index = -1
+        self.alpha = alpha
+        self.imbalance = imbalance
+        self.flag_index = flag_index
 
     def __str__(self):
         name = "dir{:.2f}".format(self.alpha)
