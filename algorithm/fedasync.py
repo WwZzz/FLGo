@@ -13,8 +13,6 @@ class Server(BasicServer):
 
     @ss.time_step
     def iterate(self):
-        if cfg.clock.current_time==2626:
-            print('ok')
         # Scheduler periodically triggers the idle clients to locally train the model
         self.selected_clients = self.sample() if (cfg.clock.current_time%self.period)==0 or cfg.clock.current_time==1 else []
         if len(self.selected_clients)>0:
