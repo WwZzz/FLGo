@@ -110,6 +110,7 @@ class DirichletPartitioner(BasicPartitioner):
         max_error = 1e-6 / num_attrs
         loop_count = 0
         crt_id = 0
+        crt_error = 100000
         while True:
             if loop_count >= error_increase_interval:
                 loop_count = 0
@@ -118,7 +119,9 @@ class DirichletPartitioner(BasicPartitioner):
             mean_prop = np.sum([pi * di for pi, di in zip(proportions, samples_per_client)], axis=0)
             mean_prop = mean_prop / mean_prop.sum()
             error_norm = ((mean_prop - p) ** 2).sum()
-            print("Error: {:.8f}".format(error_norm))
+            if error_norm<crt_error:
+                print("Error: {:.8f}".format(error_norm))
+                crt_error = error_norm
             if error_norm <= max_error:
                 break
             excid = sorted_cid_map[crt_id]

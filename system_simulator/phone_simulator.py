@@ -269,3 +269,6 @@ class StateUpdater(BasicStateUpdater):
         for idx, _ in enumerate(client_ids):
             latency[idx] = int(latency[idx] + tlcs[idx])
         self.set_variable(client_ids, 'latency', latency)
+
+    def update_client_completeness(self, client_ids, *args, **kwargs):
+        pass

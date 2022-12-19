@@ -335,7 +335,7 @@ def with_clock(communicate):
                 cfg.clock.step(tolerance_for_latency)
             return res
         # Convert the unpacked packages to a list of packages of each client.
-        pkgs = [{key:vi[id] for key,vi in res.items()} for id in range(len(list(res.values())[0]))] if len(selected_clients)>0 else []
+        pkgs = [{key: vi[id] for key, vi in res.items()} for id in range(len(list(res.values())[0]))] if len(selected_clients)>0 else []
         # Put the packages from selected clients into clock only if when there are effective selected clients
         if len(selected_clients)>0:
             # Calculate latency for selectedc clients
@@ -343,8 +343,8 @@ def with_clock(communicate):
             if 'model' in pkgs[0].keys():
                 model_sizes = [pkg['model'].count_parameters(output=False) for pkg in pkgs]
             else:
-                model_sizes = [0 for pkg in pkgs]
-            cfg.state_updater.set_variable(selected_clients, '__model_size', model_sizes)\
+                model_sizes = [0 for _ in pkgs]
+            cfg.state_updater.set_variable(selected_clients, '__model_size', model_sizes)
             # Set uploading package sizes for clients
             cfg.state_updater.set_variable(selected_clients, '__upload_package_size', [size_of_package(pkg) for pkg in pkgs])
             # Set downloading package sizes for clients
