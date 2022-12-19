@@ -189,9 +189,9 @@ class BasicStateUpdater(AbstractStateUpdater):
         return self.get_client_with_state('dropped')
 
     def get_variable(self, client_ids, varname):
-        if len(self.variables) ==0 or varname not in self.variables[0].keys(): return None
+        if len(self.variables) ==0: return None
         if type(client_ids) is not list: client_ids = [client_ids]
-        return [self.variables[cid][varname] for cid in client_ids]
+        return [self.variables[cid][varname] if varname in self.variables[cid].keys() else None for cid in client_ids]
 
     def set_variable(self, client_ids, varname, values):
         if type(client_ids) is not list: client_ids = [client_ids]
@@ -229,8 +229,6 @@ class BasicStateUpdater(AbstractStateUpdater):
             new_offline_clients = [cid for cid in idle_clients if idle_clients[cid] == 'offline']
             self.set_client_state(new_idle_clients, 'idle')
             self.set_client_state(new_offline_clients, 'offline')
-            for cid in new_idle_clients: self.clients[cid].available = True
-            for cid in new_offline_clients: self.clients[cid].available = False
         # update states for dropped clients
         for cid in self.dropped_clients:
             self.state_counter[cid]['dropped_counter'] -= 1
@@ -240,23 +238,16 @@ class BasicStateUpdater(AbstractStateUpdater):
                 if (self.random_module.rand() < self.variables[cid]['prob_unavailable']):
                     cfg.logger.info('Client {} had just dropped out and is currently offline.'.format(cid))
                     self.set_client_state([cid], 'offline')
-                    self.clients[cid].available = False
                 else:
                     cfg.logger.info('Client {} had just dropped out and is currently available.'.format(cid))
                     self.set_client_state([cid], 'idle')
-                    self.clients[cid].available = True
-
-        # update states for working clients
-        for cid in self.working_clients:
-            self.state_counter[cid]['latency_counter'] -= 1
-            if self.state_counter[cid]['latency_counter'] < 0:
-                self.state_counter[cid]['latency_counter'] = 0
-                if (self.random_module.rand() < self.variables[cid]['prob_available']):
-                    self.set_client_state([cid], 'idle')
-                    self.clients[cid].available = True
-                else:
-                    self.set_client_state([cid], 'offline')
-                    self.clients[cid].available = False
+        # Remark: the state transfer fo working clients is instead made once the server received from clients
+        # # update states for working clients
+        # for cid in self.working_clients:
+        #     self.state_counter[cid]['latency_counter'] -= 1
+        #     if self.state_counter[cid]['latency_counter'] < 0:
+        #         self.state_counter[cid]['latency_counter'] = 0
+        #         self.set_client_state([cid], 'offline')
 
 #================================================Decorators==========================================
 # Time Counter for any function which forces the `cfg.clock` to
@@ -345,20 +336,36 @@ def with_clock(communicate):
             return res
         # Convert the unpacked packages to a list of packages of each client.
         pkgs = [{key:vi[id] for key,vi in res.items()} for id in range(len(list(res.values())[0]))] if len(selected_clients)>0 else []
-        # Set selected clients' states as `working` and calculate latency for them
-        cfg.state_updater.set_client_state(selected_clients, 'working')
-        cfg.state_updater.set_variable(selected_clients, '__package_size', [size_of_package(pkg) for pkg in pkgs])
-        cfg.state_updater.update_client_responsiveness(selected_clients)
-        latency = cfg.state_updater.get_variable(selected_clients, 'latency')
+        # Put the packages from selected clients into clock only if when there are effective selected clients
+        if len(selected_clients)>0:
+            # Calculate latency for selectedc clients
+            # Set local model size of clients
+            if 'model' in pkgs[0].keys():
+                model_sizes = [pkg['model'].count_parameters(output=False) for pkg in pkgs]
+            else:
+                model_sizes = [0 for pkg in pkgs]
+            cfg.state_updater.set_variable(selected_clients, '__model_size', model_sizes)\
+            # Set uploading package sizes for clients
+            cfg.state_updater.set_variable(selected_clients, '__upload_package_size', [size_of_package(pkg) for pkg in pkgs])
+            # Set downloading package sizes for clients
+            cfg.state_updater.set_variable(selected_clients, '__download_package_size', [size_of_package(self.sending_package_buffer[cid]) for cid in selected_clients])
+            cfg.state_updater.update_client_responsiveness(selected_clients)
+            # Update latency for clients
+            latency = cfg.state_updater.get_variable(selected_clients, 'latency')
+            # Set selected clients' states as `working`
+            cfg.state_updater.set_client_state(selected_clients, 'working')
+
         # Compute the arrival time and put the packages into a queue according to their arrival time `__t`
-        for pkg, cid, lt in zip(pkgs, selected_clients, latency):
-            pkg['__cid'] = cid
-            pkg['__t'] = cfg.clock.current_time + lt
-        for pi in pkgs: cfg.clock.put(pi, pi['__t'])
+            for pkg, cid, lt in zip(pkgs, selected_clients, latency):
+                pkg['__cid'] = cid
+                pkg['__t'] = cfg.clock.current_time + lt
+            for pi in pkgs: cfg.clock.put(pi, pi['__t'])
+        # Receiving packages in asynchronous\synchronous way
         # Wait for client packages. If communicating in asynchronous way, the waiting time is 0.
         if asynchronous:
             # Return the currently received packages to the server
             eff_pkgs = cfg.clock.get_until(cfg.clock.current_time)
+            eff_cids = [pkg_i['__cid'] for pkg_i in eff_pkgs]
         else:
             # Wait all the selected clients for no more than `tolerance_for_latency` time units.
             # Check if anyone had dropped out or will be overdue
@@ -379,6 +386,7 @@ def with_clock(communicate):
             # Resort effective packages
             pkg_map = {pkg_i['__cid']: pkg_i for pkg_i in eff_pkgs}
             eff_pkgs = [pkg_map[cid] for cid in selected_clients if cid in eff_cids]
+        cfg.state_updater.set_client_state(eff_cids, 'offline')
         self.received_clients = [pkg_i['__cid'] for pkg_i in eff_pkgs]
         return self.unpack(eff_pkgs)
     return communicate_with_clock

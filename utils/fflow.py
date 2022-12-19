@@ -10,7 +10,7 @@ import system_simulator.base
 import utils.fmodule
 import config as cfg
 
-sample_list=['uniform', 'md', 'full']
+sample_list=['uniform', 'md', 'full', 'uniform_available', 'md_available', 'full_available']
 agg_list=['uniform', 'weighted_scale', 'weighted_com']
 optimizer_list=['SGD', 'Adam', 'RMSprop', 'Adagrad']
 logger = None

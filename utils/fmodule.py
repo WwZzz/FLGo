@@ -50,7 +50,6 @@ class FModule(nn.Module):
             self.__size = param_size + buffer_size
         return self.__size
 
-
     def norm(self, p=2):
         return self**p
 

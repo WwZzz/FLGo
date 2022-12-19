@@ -22,9 +22,9 @@ class BasicPartitioner(AbstractPartitioner):
             for _ in range(datasize%num_clients): samples_per_client[_] += 1
         else:
             imbalance = max(0.1, imbalance)
-            mean_datasize = datasize / num_clients
-            mu = np.log(mean_datasize) - 0.5
             sigma = imbalance
+            mean_datasize = datasize / num_clients
+            mu = np.log(mean_datasize) - sigma**2/2.0
             samples_per_client = np.random.lognormal(mu, sigma, (num_clients)).astype(int)
             thresold = int(imbalance**1.5 * (datasize - num_clients*10))
             delta = int(0.1 * thresold)

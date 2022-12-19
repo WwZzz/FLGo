@@ -35,7 +35,8 @@ class BasicServer:
         self.sample_option = option['sample']
         self.aggregation_option = option['aggregate']
         # systemic option
-        self.tolerance_for_latency = 1000
+        self.tolerance_for_latency = 999999
+        self.sending_package_buffer = [None for _ in range(9999)]
         # algorithm-dependent parameters
         self.algo_para = {}
         self.current_round = 1
@@ -70,6 +71,8 @@ class BasicServer:
                 self.current_round += 1
             # decay learning rate
             self.global_lr_scheduler(self.current_round)
+            # clear package buffer
+            self.sending_package_buffer = [None for _ in self.clients]
         cfg.logger.info("--------------Final Evaluation--------------")
         cfg.logger.time_start('Eval Time Cost')
         cfg.logger.log_once()
@@ -108,9 +111,22 @@ class BasicServer:
             :the unpacked response from clients that is created ny self.unpack()
         """
         packages_received_from_clients = []
-        client_package_buffer = {}
+        received_package_buffer = {}
         communicate_clients = list(set(selected_clients))
-        for cid in communicate_clients:client_package_buffer[cid] = None
+        # prepare packages for clients
+        for cid in communicate_clients:
+            received_package_buffer[cid] = None
+        try:
+            for cid in communicate_clients:
+                self.sending_package_buffer[cid] = self.pack(cid)
+        except Exception as e:
+            if str(self.device) != 'cpu':
+                self.model.to(torch.device('cpu'))
+                for cid in communicate_clients:
+                    self.sending_package_buffer[cid] = self.pack(cid)
+                self.model.to(self.device)
+            else:
+                raise e
         if self.num_threads <= 1:
             # computing iteratively
             for client_id in communicate_clients:
@@ -125,8 +141,8 @@ class BasicServer:
             pool.close()
             pool.join()
             packages_received_from_clients = list(map(lambda x: x.get(), packages_received_from_clients))
-        for i,cid in enumerate(communicate_clients): client_package_buffer[cid] = packages_received_from_clients[i]
-        packages_received_from_clients = [client_package_buffer[cid] for cid in selected_clients if client_package_buffer[cid]]
+        for i,cid in enumerate(communicate_clients): received_package_buffer[cid] = packages_received_from_clients[i]
+        packages_received_from_clients = [received_package_buffer[cid] for cid in selected_clients if received_package_buffer[cid]]
         self.received_clients = selected_clients
         return self.unpack(packages_received_from_clients)
 
@@ -138,10 +154,8 @@ class BasicServer:
         :return
             client_package: the reply from the client and will be 'None' if losing connection
         """
-        # package the necessary information
-        svr_pkg = self.pack(client_id)
         # listen for the client's response
-        return self.clients[client_id].reply(svr_pkg)
+        return self.clients[client_id].reply(self.sending_package_buffer[client_id])
 
     def pack(self, client_id):
         """
@@ -197,17 +211,17 @@ class BasicServer:
         :return
             a list of the ids of the selected clients
         """
-        all_clients = [cid for cid in range(self.num_clients)]
+        all_clients = self.available_clients if 'available' in self.sample_option else [cid for cid in range(self.num_clients)]
         # full sampling with unlimited communication resources of the server
-        if self.sample_option == 'full':
+        if 'full' in self.sample_option:
             return all_clients
         # sample clients
-        elif self.sample_option == 'uniform':
+        elif 'uniform' in self.sample_option:
             # original sample proposed by fedavg
-            selected_clients = list(np.random.choice(all_clients, self.clients_per_round, replace=False))
-        elif self.sample_option =='md':
+            selected_clients = list(np.random.choice(all_clients, min(self.clients_per_round, len(all_clients)), replace=False))
+        elif 'md' in self.sample_option:
             # the default setting that is introduced by FedProx, where the clients are sampled with the probability in proportion to their local data sizes
-            local_data_vols = [c.datavol for c in self.clients]
+            local_data_vols = [self.clients[cid].datavol for cid in all_clients]
             total_data_vol = sum(local_data_vols)
             p = np.array(local_data_vols)/total_data_vol
             selected_clients = list(np.random.choice(all_clients, self.clients_per_round, replace=True, p=p))
@@ -323,7 +337,7 @@ class BasicServer:
         :param
         :return: a list of indices of currently available clients
         """
-        return [cid for cid in range(self.num_clients) if self.clients[cid].is_available()]
+        return [cid for cid in range(self.num_clients) if self.clients[cid].is_idle()]
 
     def register_clients(self, clients):
         self.clients = clients
@@ -359,13 +373,7 @@ class BasicClient:
         self.loader_num_workers = option['num_workers']
         self.current_steps = 0
         # system setting
-        # 1) availability
-        self.available = True
-        # 2) connectivity
-        self.dropped = False
-        # 3) completeness
         self._effective_num_steps = self.num_steps
-        # 4) timeliness
         self._latency = 0
         # server
         self.server = None
@@ -452,23 +460,26 @@ class BasicClient:
             "model" : model,
         }
 
-    def is_available(self):
+    def is_idle(self):
         """
         Check if the client is active to participate training.
         :param
         :return
             True if the client is active according to the active_rate else False
         """
-        return self.available
+        return cfg.state_updater.client_states[self.id]=='idle'
 
     def is_dropped(self):
         """
         Check if the client drops out during communicating.
         :param
         :return
-            True if the client drops out according to the drop_rate else False
+            True if the client was being dropped
         """
-        return self.dropped
+        return cfg.state_updater.client_states[self.id]=='dropped'
+
+    def is_working(self):
+        return cfg.state_updater.client_states[self.id]=='working'
 
     def train_loss(self, model):
         """
