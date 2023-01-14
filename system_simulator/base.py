@@ -264,9 +264,9 @@ def with_availability(sample):
     def sample_with_availability(self):
         available_clients = cfg.state_updater.idle_clients
         # ensure that there is at least one client to be available at the current moment
-        while len(available_clients) == 0:
-            cfg.clock.step()
-            available_clients = cfg.state_updater.idle_clients
+        # while len(available_clients) == 0:
+        #     cfg.clock.step()
+        #     available_clients = cfg.state_updater.idle_clients
         # call the original sampling function
         selected_clients = sample(self)
         # filter the selected but unavailable clients
