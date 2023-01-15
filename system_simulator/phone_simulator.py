@@ -139,7 +139,7 @@ class StateUpdater(BasicStateUpdater):
             flag = self.option['responsiveness'].find('LCLN-')
             tmp  = self.option['responsiveness']
             if not tmp.endswith('_'): tmp = tmp + '_'
-            std = tmp[flag+5: tmp.find('_', flag)]
+            std = float(tmp[flag+5: tmp.find('_', flag)])
             u_mean = us.mean()
             mu = np.log(u_mean) - std**2/2.0
             self.client_us = np.random.lognormal(mu, std, self.num_clients).tolist()
